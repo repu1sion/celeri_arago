@@ -1,0 +1,134 @@
+[INFO:]
+--------------------------------------------------------------------------------
+/opt/ti-processor-sdk-linux-am65xx-evm-06.03.00.106 		- sdk version
+kernel - 4.19.94						- kernel version
+be5389fd85b69250aeb1ba477447879fb392152f			- kernel commit 
+aarch64-linux-gnu-	ARMv8	am65xx-evm			- toolchain
+
+
+BUILDING SDK (ti-processor-sdk-linux-am65xx-evm-06.03.00.106-Linux-x86-Install.bin)
+--------------------------------------------------------------------------------
+0. Install prereqs (Ubuntu 18.04 LTS)a
+---
+# sudo apt-get install git build-essential python diffstat texinfo gawk chrpath dos2unix wget unzip socat doxygen libc6:i386 libncurses5:i386 libstdc++6:i386 libz1:i386
+# sudo dpkg-reconfigure dash			(select 'NO')
+
+1. Dl arm cross-compiling toolchain
+---
+# wget https://developer.arm.com/-/media/Files/downloads/gnu-a/8.3-2019.03/binrel/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf.tar.xz
+# tar -Jxvf gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf.tar.xz -C $HOME
+# wget https://developer.arm.com/-/media/Files/downloads/gnu-a/8.3-2019.03/binrel/gcc-arm-8.3-2019.03-x86_64-aarch64-linux-gnu.tar.xz
+# tar -Jxvf gcc-arm-8.3-2019.03-x86_64-aarch64-linux-gnu.tar.xz -C $HOME
+
+2. Dl tisdk layer and setup env
+---
+# git clone git://arago-project.org/git/projects/oe-layersetup.git tisdk
+# cd tisdk
+# ./oe-layertool-setup.sh -f configs/processor-sdk/processor-sdk-06.03.00.106-config.txt
+# cd build
+# . conf/setenv
+# export TOOLCHAIN_PATH_ARMV7=$HOME/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf
+# export TOOLCHAIN_PATH_ARMV8=$HOME/gcc-arm-8.3-2019.03-x86_64-aarch64-linux-gnu
+
+3. Build arago images
+---
+# MACHINE=am65xx-evm bitbake arago-base-tisdk-image
+
+P.S. if build fails on binutils-native linaro - rebuild this task separately and then continue
+# MACHINE=am65xx-evm bitbake binutils-native			- build binutils-native-linaro here
+# MACHINE=am65xx-evm bitbake arago-base-tisdk-image
+
+4. output images are here:
+---
+~/andrii/tisdk/build/arago-tmp-external-arm-toolchain/deploy/images/am65xx-evm
+
+
+[ARAGO NOTES:]
+--------------------------------------------------------------------------------
+important conf files in build/
+---
+conf/bblayers.conf
+conf/local.conf
+conf/setenv
+
+working with recipes
+---
+MACHINE=am57xx-evm bitbake opencl				- build opencl only
+MACHINE=<machine> bitbake <target> -c cleansstate		- clean build recipe
+MACHINE=am65xx-evm bitbake binutils-native			- build binutils-native-linaro only
+
+support ti forum
+-----
+https://e2e.ti.com/support/processors/f/791/t/855001
+
+
+[FLASHING SD CARD NOTES (required 16Gb card or bigger):]
+--------------------------------------------------------------------------------
+http://software-dl.ti.com/processor-sdk-linux/esd/docs/latest/linux/Overview/Processor_SDK_Linux_create_SD_card_script.html#sd-card-using-custom-images				- link on flashing SD card with images
+
+script to flash SD card images:
+---
+sudo <SDK INSTALL DIR>/bin/create-sdcard.sh
+/opt/ti-processor-sdk-linux-am65xx-evm-06.03.00.106/bin/create-sdcard.sh
+
+SDK prebuilt images:
+-----
+/opt/ti-processor-sdk-linux-am65xx-evm-06.03.00.106/board-support/prebuilt-images	- here is uboot etc.
+
+Files needed for boot:
++-------------+-----------------------------------------+
+|    File     |                Location                 |
++-------------+-----------------------------------------+
+| tiboot3.bin | boot partition                          |
+| tispl.bin   | boot partition                          |
+| u-boot.img  | boot partition                          |
+| sysfw.itb   | boot partition                          |
+| uEnv.txt    | boot partition                          |
++-------------+-----------------------------------------+
+| Image       | /boot directory of the rootfs partition |
+| *.dtb       | /boot directory of the rootfs partition |
+| *.dtbo      | /boot directory of the rootfs partition |
++-------------+-----------------------------------------+
+
+Boot desc
+---
+We need 2 partitions on SD card: 1 - FAT, 2 - EXT4
+By default the boot loaders are read from the first FAT partition, which is
+usually called the "boot" partition.  Then the bootloader will look for the
+Image and .dtb .dtbo files in the /boot directory of the ext4 partition, which is
+usually called the "rootfs" partition.
+
+
+[SEQUENCE TO FLASH SD CARD:]
+--------------------------------------------------------------------------------
+0. run create-sdcard.sh with sudo
+---
+/opt/ti-processor-sdk-linux-am65xx-evm-06.03.00.106/bin/create-sdcard.sh
+
+1. boot partition from SDK
+---
+Enter path for Boot Partition : /opt/ti-processor-sdk-linux-am65xx-evm-06.03.00.106/board-support/prebuilt-images
+
+2. kernel and device tree from newly created rootfs
+---
+For Kernel Image and Device Trees files
+ 1) Reuse kernel image and device tree files found in the selected rootfs.
+
+3. rootfs created from yocto build
+---
+Enter path for Rootfs Partition : /home/celeriroot/andrii/tisdk/build/arago-tmp-external-arm-toolchain/deploy/images/am65xx-evm/arago-base-tisdk-image-am65xx-evm-20200715133021.rootfs.tar.xz
+
+
+flashing output
+-----
+Copying boot partition
+tispl.bin copied
+tiboot3.bin copied
+sysfw.itb copied
+u-boot.img copied
+uEnv.txt copied
+Copying rootfs System partition
+Syncing...
+Un-mount the partitions 
+Remove created temp directories 
+Operation Finished
